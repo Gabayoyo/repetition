@@ -219,6 +219,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Downloaded model weights
+vision/models/
+
 
 # ==============================================================================
 # ROS / ROS 2 Workspace Artifacts (Catkin, Colcon, ament)
