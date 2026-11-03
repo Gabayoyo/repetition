@@ -218,3 +218,44 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# ==============================================================================
+# ROS / ROS 2 Workspace Artifacts (Catkin, Colcon, ament)
+# ==============================================================================
+devel/
+logs/
+images/
+.catkin_workspace
+.ament_flake8.log
+.ament_pep257.log
+.ament_uncrustify.log
+
+# Workspace build outputs and generated trees
+bin/
+build/
+lib/
+install/
+log/
+
+# Alternative hidden build directories
+.build/
+.install/
+.log/
+
+# Colcon logging symbolic links generated at workspace root
+latest/
+latest_build/
+latest_test/
+
+# IDE / Build system configuration files
+.cproject
+.project
+.externalToolBuilders/
+
+# Editor and system temporary files
+*~
+*.pyc
+*.sublime-workspace
+**/.idea/**
+.vscode/
