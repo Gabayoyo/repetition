@@ -1,19 +1,29 @@
-"""File for Oak camera handling, including pipeline building and frame capture"""
+"""Oak camera handling: pipeline building, frame capture and the frame type."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import sys
 import time
 
 import depthai as dai
+import numpy as np
 
-from capture import CaptureFrame
+
+@dataclass(frozen=True)
+class CaptureFrame:
+    """One colour frame from the camera."""
+
+    bgr: np.ndarray
+    t_s: float
+    timestamp_ms: int
+
 
 # Various camera constants
 RGB_SOCKET = dai.CameraBoardSocket.CAM_A
 QUEUE_SIZE = 4
 READ_TIMEOUT_S = 2.0
-USB2_FPS = 15.0 # USB 2 caps at 15fps; Macbook Pro 2026 M5
+USB2_FPS = 15.0  # USB 2 caps the stream at 15 fps
 DEFAULT_WIDTH = 640
 DEFAULT_HEIGHT = 360
 DEFAULT_FPS = 15.0
@@ -85,7 +95,10 @@ class OakCapture:
     def _report_link(self, speed) -> None:
         print(f"oak: {speed.name} link", file=sys.stderr)
         if not self._usb3(speed):
-            print("oak: link is not USB 3; bandwidth is the frame-rate ceiling here", file=sys.stderr)
+            print(
+                "oak: link is not USB 3; bandwidth caps the frame rate",
+                file=sys.stderr,
+            )
 
     def read(self) -> CaptureFrame | None:
         """Gets the newest frame"""

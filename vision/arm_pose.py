@@ -1,12 +1,4 @@
-"""Human arm pose from MediaPipe landmarks: frame conversion and hand state.
-
-This module is the perception-to-arm boundary. It returns the measured right-arm chain and
-the hand orientation/gripper state; robot-specific scaling and inverse kinematics belong to
-the consumer. No calibration, camera, GUI or ROS dependency.
-
-This is the trimmed copy for the Pi-facing repo. Copy it as ``mocap.py`` beside
-``arm_chain.py``.
-"""
+"""Human arm pose and hand state from MediaPipe landmarks."""
 
 from __future__ import annotations
 
@@ -14,7 +6,7 @@ import math
 
 import numpy as np
 
-from arm_chain import ArmChain
+from .arm_chain import ArmChain
 
 RIGHT_SHOULDER = 12
 RIGHT_ELBOW = 14
