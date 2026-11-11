@@ -16,7 +16,6 @@ class CaptureFrame:
 
     bgr: np.ndarray
     t_s: float
-    timestamp_ms: int
 
 
 # Various camera constants
@@ -134,7 +133,6 @@ class OakCapture:
         return CaptureFrame(
             bgr=frame,
             t_s=(self._last_ms - self._start_ms) / 1000.0,
-            timestamp_ms=self._last_ms,
         )
 
     def close(self) -> None:

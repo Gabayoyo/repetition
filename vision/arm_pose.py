@@ -32,7 +32,11 @@ def vec3(landmark) -> np.ndarray:
 
 
 def to_mujoco(vector) -> np.ndarray:
-    """MediaPipe world axes to the mocap frame: x toward the camera, y left, z up."""
+    """MediaPipe world axes to the mocap frame.
+
+    MediaPipe: x is camera-right, y is down, z points toward the camera.
+    Mocap: x is forward, y is left, z is up, with x = -z_mediapipe.
+    """
     values = np.asarray(vector, dtype=np.float64)
     return np.array([-values[2], values[0], -values[1]], dtype=np.float64)
 

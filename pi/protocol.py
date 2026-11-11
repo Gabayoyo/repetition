@@ -61,67 +61,30 @@ class ArmPacket:
     quat: Quaternion
     gripper_open: bool
     links: tuple[float, float]
-    valid: bool = True
     version: int = VERSION
 
     def __post_init__(self) -> None:
-        version = int(self.version)
-        if version != VERSION:
-            raise ValueError(f"unsupported packet version: {version}")
-        seq = int(self.seq)
-        if seq < 0:
-            raise ValueError("seq must not be negative")
-        timestamp = float(self.t)
-        if not math.isfinite(timestamp):
-            raise ValueError("t must be finite")
-        object.__setattr__(self, "version", version)
-        object.__setattr__(self, "seq", seq)
-        object.__setattr__(self, "t", timestamp)
-        object.__setattr__(self, "shoulder", _point(self.shoulder, "shoulder"))
-        object.__setattr__(self, "elbow", _point(self.elbow, "elbow"))
-        object.__setattr__(self, "wrist", _point(self.wrist, "wrist"))
-        object.__setattr__(self, "quat", _quaternion(self.quat))
-        object.__setattr__(self, "gripper_open", bool(self.gripper_open))
-        object.__setattr__(self, "links", _links(self.links))
-        object.__setattr__(self, "valid", bool(self.valid))
-
-    def to_dict(self) -> dict:
-        return {
-            "v": self.version,
-            "seq": self.seq,
-            "t": self.t,
-            "valid": self.valid,
-            "shoulder": list(self.shoulder),
-            "elbow": list(self.elbow),
-            "wrist": list(self.wrist),
-            "quat": list(self.quat),
-            "gripper": self.gripper_open,
-            "links": list(self.links),
-        }
+        if int(self.version) != VERSION:
+            raise ValueError(f"unsupported packet version: {self.version}")
 
     def to_json(self) -> str:
-        return json.dumps(self.to_dict(), separators=(",", ":"))
+        return json.dumps(
+            {
+                "v": self.version,
+                "seq": self.seq,
+                "t": self.t,
+                "shoulder": list(self.shoulder),
+                "elbow": list(self.elbow),
+                "wrist": list(self.wrist),
+                "quat": list(self.quat),
+                "gripper": self.gripper_open,
+                "links": list(self.links),
+            },
+            separators=(",", ":"),
+        )
 
     def to_bytes(self) -> bytes:
         return self.to_json().encode("utf-8")
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "ArmPacket":
-        try:
-            return cls(
-                seq=data["seq"],
-                t=data["t"],
-                shoulder=data["shoulder"],
-                elbow=data["elbow"],
-                wrist=data["wrist"],
-                quat=data["quat"],
-                gripper_open=data.get("gripper", data.get("gripper_open", True)),
-                links=data["links"],
-                valid=data.get("valid", True),
-                version=data.get("v", VERSION),
-            )
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"invalid arm packet: {exc}") from exc
 
     @classmethod
     def from_json(cls, text) -> "ArmPacket":
@@ -133,7 +96,26 @@ class ArmPacket:
             raise ValueError(f"invalid arm packet JSON: {exc}") from exc
         if not isinstance(data, dict):
             raise ValueError("arm packet must be a JSON object")
-        return cls.from_dict(data)
+        try:
+            seq = int(data["seq"])
+            if seq < 0:
+                raise ValueError("seq must not be negative")
+            timestamp = float(data["t"])
+            if not math.isfinite(timestamp):
+                raise ValueError("t must be finite")
+            return cls(
+                seq=seq,
+                t=timestamp,
+                shoulder=_point(data["shoulder"], "shoulder"),
+                elbow=_point(data["elbow"], "elbow"),
+                wrist=_point(data["wrist"], "wrist"),
+                quat=_quaternion(data["quat"]),
+                gripper_open=bool(data.get("gripper", data.get("gripper_open", True))),
+                links=_links(data["links"]),
+                version=int(data.get("v", VERSION)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"invalid arm packet: {exc}") from exc
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "ArmPacket":

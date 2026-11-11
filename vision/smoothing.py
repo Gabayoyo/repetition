@@ -28,37 +28,12 @@ def _alpha(cutoff_hz: float, dt: float) -> float:
     return 1.0 / (1.0 + tau / dt)
 
 
-class _LowPass:
-    __slots__ = ("_value",)
-
-    def __init__(self) -> None:
-        self._value: float | None = None
-
-    def filter(self, value: float, alpha: float) -> float:
-        if self._value is None:
-            self._value = value
-        else:
-            self._value = alpha * value + (1.0 - alpha) * self._value
-        return self._value
-
-    def reset(self) -> None:
-        self._value = None
-
-
 class OneEuroFilter:
     """Scalar One Euro filter with timestamp-driven cutoff adaptation."""
 
-    def __init__(
-        self,
-        min_cutoff: float = MIN_CUTOFF_HZ,
-        beta: float = BETA,
-        d_cutoff: float = DERIVATIVE_CUTOFF_HZ,
-    ) -> None:
-        self.min_cutoff = float(min_cutoff)
-        self.beta = float(beta)
-        self.d_cutoff = float(d_cutoff)
-        self._x = _LowPass()
-        self._dx = _LowPass()
+    def __init__(self) -> None:
+        self._x: float | None = None
+        self._dx: float | None = None
         self._last_t: float | None = None
         self._last_x: float | None = None
 
@@ -70,56 +45,60 @@ class OneEuroFilter:
             or t <= self._last_t
             or t - self._last_t > RESET_GAP_S
         ):
-            self._x.reset()
-            self._dx.reset()
-            self._x.filter(value, 1.0)
+            self._x = value
+            self._dx = None
             self._last_t = t
             self._last_x = value
             return value
 
         dt = t - self._last_t
         derivative = (value - self._last_x) / dt
-        smoothed_derivative = self._dx.filter(
-            derivative, _alpha(self.d_cutoff, dt)
+        alpha = _alpha(DERIVATIVE_CUTOFF_HZ, dt)
+        self._dx = (
+            derivative
+            if self._dx is None
+            else alpha * derivative + (1.0 - alpha) * self._dx
         )
-        cutoff = self.min_cutoff + self.beta * abs(smoothed_derivative)
-        smoothed = self._x.filter(value, _alpha(cutoff, dt))
+        cutoff = MIN_CUTOFF_HZ + BETA * abs(self._dx)
+        alpha = _alpha(cutoff, dt)
+        smoothed = alpha * value + (1.0 - alpha) * self._x
+        self._x = smoothed
         self._last_t = t
         self._last_x = value
         return smoothed
 
 
-class VectorFilter:
-    """One Euro filter applied component-wise to a fixed-size vector."""
+class ArmSmoother:
+    """Smooths the shoulder/elbow/wrist chain and the hand quaternion."""
 
-    def __init__(self, size: int, **kwargs) -> None:
-        self._filters = [OneEuroFilter(**kwargs) for _ in range(size)]
+    def __init__(self) -> None:
+        self._points = [[OneEuroFilter() for _ in range(3)] for _ in range(3)]
+        self._quat = [OneEuroFilter() for _ in range(4)]
+        self._last_quat: np.ndarray | None = None
+        self._last_quat_t: float | None = None
 
-    def __call__(self, values, t: float) -> np.ndarray:
-        return np.array(
-            [f(float(v), t) for f, v in zip(self._filters, values)],
-            dtype=np.float64,
+    def update_chain(self, chain: ArmChain, t: float) -> ArmChain:
+        shoulder, elbow, wrist = (
+            np.array(
+                [filter_(value, t) for filter_, value in zip(filters, point)],
+                dtype=np.float64,
+            )
+            for filters, point in zip(
+                self._points, (chain.shoulder, chain.elbow, chain.wrist)
+            )
         )
+        return ArmChain(shoulder=shoulder, elbow=elbow, wrist=wrist)
 
-
-class QuaternionFilter:
-    """Component-wise filtering with sign alignment and renormalisation."""
-
-    def __init__(self, **kwargs) -> None:
-        self._filters = [OneEuroFilter(**kwargs) for _ in range(4)]
-        self._last: np.ndarray | None = None
-        self._last_t: float | None = None
-
-    def __call__(self, quaternion, t: float) -> np.ndarray:
+    def update_quat(self, quaternion, t: float) -> np.ndarray:
         values = np.asarray(quaternion, dtype=np.float64)
-        if self._last_t is not None and (
-            t <= self._last_t or t - self._last_t > RESET_GAP_S
+        if self._last_quat_t is not None and (
+            t <= self._last_quat_t or t - self._last_quat_t > RESET_GAP_S
         ):
-            self._last = None
-        if self._last is not None and float(np.dot(values, self._last)) < 0.0:
+            self._last_quat = None
+        if self._last_quat is not None and float(np.dot(values, self._last_quat)) < 0.0:
             values = -values
         filtered = np.array(
-            [f(float(v), t) for f, v in zip(self._filters, values)],
+            [filter_(float(value), t) for filter_, value in zip(self._quat, values)],
             dtype=np.float64,
         )
         norm = float(np.linalg.norm(filtered))
@@ -127,26 +106,6 @@ class QuaternionFilter:
             filtered = IDENTITY_QUAT.copy()
         else:
             filtered /= norm
-        self._last = filtered
-        self._last_t = t
+        self._last_quat = filtered
+        self._last_quat_t = t
         return filtered
-
-
-class ArmSmoother:
-    """Smooths the shoulder/elbow/wrist chain and the hand quaternion."""
-
-    def __init__(self, **kwargs) -> None:
-        self._points = [VectorFilter(3, **kwargs) for _ in range(3)]
-        self._quat = QuaternionFilter(**kwargs)
-
-    def update_chain(self, chain: ArmChain, t: float) -> ArmChain:
-        shoulder, elbow, wrist = (
-            filter_(point, t)
-            for filter_, point in zip(
-                self._points, (chain.shoulder, chain.elbow, chain.wrist)
-            )
-        )
-        return ArmChain(shoulder=shoulder, elbow=elbow, wrist=wrist)
-
-    def update_quat(self, quaternion, t: float) -> np.ndarray:
-        return self._quat(quaternion, t)

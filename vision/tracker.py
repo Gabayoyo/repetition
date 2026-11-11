@@ -62,7 +62,7 @@ class HolisticTracker:
             cv2.cvtColor(frame.bgr, cv2.COLOR_BGR2RGB)
         )
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-        return self._landmarker.detect_for_video(image, frame.timestamp_ms)
+        return self._landmarker.detect_for_video(image, int(round(frame.t_s * 1000.0)))
 
     def close(self) -> None:
         self._landmarker.close()
