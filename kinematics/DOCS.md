@@ -43,8 +43,19 @@ rosdep update
 rosdep install --from-paths src -ryi
 colcon build --symlink-install --packages-up-to interbotix_xsarm_control
 
+# Steps
 
+Install ROS2 (probably lyrical)
+Install colcon [here](https://docs.ros.org/en/kilted/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html)
+Install rosdep
+Install Interbotix from source
 
+Go into Interbotix repo and ```colcon build --symlink```
 
+Edit loop (TBC):
 
+Then build kinematics package - cd into kinematics, run ```colcon build --symlink```
+Then source things
+ros2 launch kinematics_package custom_arm.launch.py use_sim:=true
 
+Then can make changes to URDF
